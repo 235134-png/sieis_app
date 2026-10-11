@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/device_service.dart';
 import '../services/notification_service.dart';
-import 'device_pairing_flow_screen.dart';
+import '../services/theme_service.dart';
+import 'edit_profile_screen.dart';
+import 'manage_device_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.authService});
@@ -16,6 +18,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final DeviceService _deviceService = DeviceService();
   final NotificationService _notificationService = NotificationService();
+  final ThemeService _themeService = ThemeService();
 
   // Notification Preferences
   bool _enableNotifications = true;
@@ -35,15 +38,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _deviceService.addListener(_onDeviceChanged);
+    _themeService.addListener(_onThemeChanged);
     _enableNotifications = _notificationService.enableMaster;
     _criticalAlerts = _notificationService.enableCritical;
     _predictionAlerts = _notificationService.enableAiWarnings;
     _soundVibration = _notificationService.enableSoundVibration;
+    _themeMode = _themeService.themeModeName;
   }
 
   @override
   void dispose() {
     _deviceService.removeListener(_onDeviceChanged);
+    _themeService.removeListener(_onThemeChanged);
     super.dispose();
   }
 
@@ -51,172 +57,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {});
   }
 
-  void _editProfileDialog() {
-    final user = widget.authService.currentUser;
-    final nameController = TextEditingController(text: user?.name ?? '');
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Edit Profile', style: TextStyle(fontWeight: FontWeight.w800)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Update account data:', style: TextStyle(fontSize: 13, color: Color(0xFF687386))),
-            const SizedBox(height: 16),
-            TextField(
-              controller: nameController,
-              decoration: InputDecoration(
-                labelText: 'Full Name',
-                prefixIcon: const Icon(Icons.person_outline_rounded),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              enabled: false,
-              controller: TextEditingController(text: user?.email ?? ''),
-              decoration: InputDecoration(
-                labelText: 'Email Address (Account ID)',
-                prefixIcon: const Icon(Icons.email_outlined),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F766E),
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () async {
-              final newName = nameController.text.trim();
-              if (newName.isNotEmpty) {
-                await widget.authService.updateProfileName(newName);
-              }
-              if (!mounted) return;
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Profile updated successfully'),
-                  backgroundColor: Color(0xFF0F9F6E),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-            child: const Text('Save Changes'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _renameDeviceDialog() {
-    final active = _deviceService.activeDevice;
-    if (active == null) return;
-    final controller = TextEditingController(text: active.name);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Rename Device'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: 'Device Name'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final newName = controller.text.trim();
-              if (newName.isNotEmpty) {
-                _deviceService.renameDevice(newName);
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _changeRoomDialog() {
-    final active = _deviceService.activeDevice;
-    if (active == null) return;
-    final controller = TextEditingController(text: active.room);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Change Device Room'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: 'Room / Location Name'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final newRoom = controller.text.trim();
-              if (newRoom.isNotEmpty) {
-                _deviceService.updateDeviceRoom(newRoom);
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _unpairDeviceConfirm() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Unpair Device'),
-        content: const Text(
-          'Are you sure you want to disconnect and unpair this ESP32 device? You will need to pair a device again to view sensor data.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD64545),
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              _deviceService.unpairDevice();
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Device unpaired successfully'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-            child: const Text('Unpair'),
-          ),
-        ],
-      ),
-    );
+  void _onThemeChanged() {
+    setState(() {
+      _themeMode = _themeService.themeModeName;
+    });
   }
 
   void _showHelpDialog() {
@@ -235,7 +79,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               SizedBox(height: 4),
               Text(
-                'SIEIS connects to your IoT ESP32 sensors to monitor CO₂, TVOC, temperature, and humidity, giving real-time data and AI predictions.',
+                'SIEIS connects to your IoT ESP32 sensors to monitor CO₂, TVOC, temperature, humidity, and smoke, giving real-time data and AI predictions.',
                 style: TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
               ),
               SizedBox(height: 14),
@@ -245,7 +89,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               SizedBox(height: 4),
               Text(
-                'Go to Settings → Device → Add / Connect Another Device and scan the QR code on your ESP32.',
+                'Go to Settings → Manage Device → Pair Another Device via Camera QR and scan the QR code on your ESP32.',
                 style: TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
               ),
             ],
@@ -366,9 +210,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.manage_accounts_outlined, color: Color(0xFF0F766E)),
-                    title: const Text('Edit Profile (Update Account Data)', style: TextStyle(fontWeight: FontWeight.w700)),
+                    title: const Text('Edit Profile Page', style: TextStyle(fontWeight: FontWeight.w700)),
+                    subtitle: const Text('Update name, email, phone number & bio'),
                     trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: _editProfileDialog,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditProfileScreen(authService: widget.authService),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -384,111 +236,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  if (activeDevice != null) ...[
-                    Row(
-                      children: [
-                        Container(
-                          width: 12,
-                          height: 12,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF0F9F6E),
-                            shape: BoxShape.circle,
-                          ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: activeDevice != null ? const Color(0xFF0F9F6E) : const Color(0xFF9CA3AF),
+                          shape: BoxShape.circle,
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                activeDevice.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 15,
-                                ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              activeDevice?.name ?? 'No Connected Device',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
                               ),
-                              Text(
-                                'ID: ${activeDevice.id} • Room: ${activeDevice.room}',
-                                style: const TextStyle(
-                                  color: Color(0xFF687386),
-                                  fontSize: 12,
-                                ),
+                            ),
+                            Text(
+                              activeDevice != null
+                                  ? 'ID: ${activeDevice.id} • Room: ${activeDevice.room}'
+                                  : 'Tap Manage Device to scan QR and pair',
+                              style: const TextStyle(
+                                color: Color(0xFF687386),
+                                fontSize: 12,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    const Divider(height: 24),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.edit_outlined),
-                      title: const Text('Rename Device'),
-                      onTap: _renameDeviceDialog,
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.meeting_room_outlined),
-                      title: const Text('Change Room Location'),
-                      onTap: _changeRoomDialog,
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.add_a_photo_outlined, color: Color(0xFF0F766E)),
-                      title: const Text('Scan QR Code to Add New Device', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF0F766E))),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => DevicePairingFlowScreen(
-                              allowSkip: true,
-                              onPairingComplete: () {
-                                Navigator.pop(context);
-                              },
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.link_off_rounded, color: Color(0xFFD64545)),
-                      title: const Text(
-                        'Unpair Current Device',
-                        style: TextStyle(color: Color(0xFFD64545), fontWeight: FontWeight.w700),
                       ),
-                      onTap: _unpairDeviceConfirm,
-                    ),
-                  ] else ...[
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        'No device currently connected.',
-                        style: TextStyle(color: Color(0xFF687386)),
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => DevicePairingFlowScreen(
-                              allowSkip: true,
-                              onPairingComplete: () {
-                                Navigator.pop(context);
-                              },
-                            ),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0F766E),
-                        foregroundColor: Colors.white,
-                      ),
-                      icon: const Icon(Icons.add_rounded),
-                      label: const Text('Connect ESP32 Device via QR'),
-                    ),
-                  ],
+                    ],
+                  ),
+                  const Divider(height: 20),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.developer_board_rounded, color: Color(0xFF0F766E)),
+                    title: const Text('Manage Device Page', style: TextStyle(fontWeight: FontWeight.w700)),
+                    subtitle: const Text('Specs, room assignment, QR pair & unpair'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ManageDeviceScreen(),
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -645,21 +444,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 18),
 
-          // 5. Appearance
-          _buildSectionHeader('Appearance', Icons.palette_outlined),
+          // 5. Appearance (Dark Mode Switch)
+          _buildSectionHeader('Appearance & Theme', Icons.palette_outlined),
           Card(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'Light', label: Text('Light'), icon: Icon(Icons.wb_sunny_outlined)),
-                  ButtonSegment(value: 'Dark', label: Text('Dark'), icon: Icon(Icons.nightlight_outlined)),
-                  ButtonSegment(value: 'System', label: Text('System'), icon: Icon(Icons.settings_suggest_outlined)),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('App Theme Mode', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'Light', label: Text('Light'), icon: Icon(Icons.wb_sunny_outlined)),
+                        ButtonSegment(value: 'Dark', label: Text('Dark'), icon: Icon(Icons.nightlight_outlined)),
+                        ButtonSegment(value: 'System', label: Text('System'), icon: Icon(Icons.settings_suggest_outlined)),
+                      ],
+                      selected: {_themeMode},
+                      onSelectionChanged: (val) {
+                        setState(() => _themeMode = val.first);
+                        _themeService.setThemeMode(val.first);
+                      },
+                    ),
+                  ),
                 ],
-                selected: {_themeMode},
-                onSelectionChanged: (val) {
-                  setState(() => _themeMode = val.first);
-                },
               ),
             ),
           ),

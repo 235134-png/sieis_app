@@ -12,6 +12,7 @@ import 'services/auth_service.dart';
 import 'services/device_service.dart';
 import 'services/notification_service.dart';
 import 'services/sensor_service.dart';
+import 'services/theme_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +35,7 @@ class _SieisAppState extends State<SieisApp> {
   final AuthService _authService = AuthService();
   final DeviceService _deviceService = DeviceService();
   final SensorService _sensorService = SensorService();
+  final ThemeService _themeService = ThemeService();
   bool _showSplash = true;
 
   @override
@@ -41,6 +43,7 @@ class _SieisAppState extends State<SieisApp> {
     super.initState();
     _authService.addListener(_onStateChanged);
     _deviceService.addListener(_onStateChanged);
+    _themeService.addListener(_onStateChanged);
     _sensorService.initializeFirebaseSensorStream();
   }
 
@@ -48,6 +51,7 @@ class _SieisAppState extends State<SieisApp> {
   void dispose() {
     _authService.removeListener(_onStateChanged);
     _deviceService.removeListener(_onStateChanged);
+    _themeService.removeListener(_onStateChanged);
     super.dispose();
   }
 
@@ -57,17 +61,23 @@ class _SieisAppState extends State<SieisApp> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = ColorScheme.fromSeed(
+    final lightColorScheme = ColorScheme.fromSeed(
       seedColor: const Color(0xFF0F766E),
       brightness: Brightness.light,
+    );
+
+    final darkColorScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF0F766E),
+      brightness: Brightness.dark,
     );
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'SIEIS',
+      themeMode: _themeService.themeMode,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: colorScheme,
+        colorScheme: lightColorScheme,
         scaffoldBackgroundColor: const Color(0xFFF6F8FB),
         fontFamily: 'Roboto',
         cardTheme: CardThemeData(
@@ -83,6 +93,27 @@ class _SieisAppState extends State<SieisApp> {
           indicatorColor: const Color(0xFFE0F2F1),
           labelTextStyle: WidgetStateProperty.all(
             const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        colorScheme: darkColorScheme,
+        scaffoldBackgroundColor: const Color(0xFF111827),
+        fontFamily: 'Roboto',
+        cardTheme: CardThemeData(
+          elevation: 0,
+          color: const Color(0xFF1F2937),
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          indicatorColor: const Color(0xFF0F766E),
+          labelTextStyle: WidgetStateProperty.all(
+            const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
           ),
         ),
       ),
