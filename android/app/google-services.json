@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "547869981499",
+    "firebase_url": "https://sieis-7b7fe-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "sieis-7b7fe",
+    "storage_bucket": "sieis-7b7fe.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:547869981499:android:74ac990094cca532cfd51e",
+        "android_client_info": {
+          "package_name": "com.sieis.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBwpqKoY_7EPmmMsjbHKws2wJnotU-Q1CY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
