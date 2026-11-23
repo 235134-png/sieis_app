@@ -1,4 +1,7 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
+import 'auth_service.dart';
 
 class PairedDevice {
   final String id;
@@ -28,7 +31,6 @@ class DeviceService extends ChangeNotifier {
   factory DeviceService() => _instance;
 
   DeviceService._internal() {
-    // Default to no paired device initially so user connects device during setup
     _activeDevice = null;
   }
 
@@ -37,20 +39,74 @@ class DeviceService extends ChangeNotifier {
   bool get isDevicePaired => _activeDevice != null;
   PairedDevice? get activeDevice => _activeDevice;
 
+  Future<void> syncDeviceToFirebase() async {
+    final userId = AuthService().currentUser?.id;
+    if (userId == null || _activeDevice == null) return;
+    try {
+      final app = Firebase.apps.isNotEmpty
+          ? Firebase.app()
+          : await Firebase.initializeApp();
+      final database = FirebaseDatabase.instanceFor(
+        app: app,
+        databaseURL:
+            'https://sieis-7b7fe-default-rtdb.asia-southeast1.firebasedatabase.app',
+      );
+      await database
+          .ref('users/$userId/paired_devices/${_activeDevice!.id}')
+          .set({
+        'deviceId': _activeDevice!.id,
+        'deviceName': _activeDevice!.name,
+        'roomLocation': _activeDevice!.room,
+        'macAddress': _activeDevice!.macAddress,
+        'connectionType': _activeDevice!.connectionType,
+        'isOnline': _activeDevice!.isOnline,
+        'signalDb': _activeDevice!.signalDb,
+        'pairedAt': _activeDevice!.pairedAt.millisecondsSinceEpoch,
+        'updatedAt': DateTime.now().millisecondsSinceEpoch,
+      });
+    } catch (e) {
+      debugPrint('Firebase Device Sync Note: $e');
+    }
+  }
+
+  Future<void> removeDeviceFromFirebase(String deviceId) async {
+    final userId = AuthService().currentUser?.id;
+    if (userId == null) return;
+    try {
+      final app = Firebase.apps.isNotEmpty
+          ? Firebase.app()
+          : await Firebase.initializeApp();
+      final database = FirebaseDatabase.instanceFor(
+        app: app,
+        databaseURL:
+            'https://sieis-7b7fe-default-rtdb.asia-southeast1.firebasedatabase.app',
+      );
+      await database.ref('users/$userId/paired_devices/$deviceId').remove();
+    } catch (e) {
+      debugPrint('Firebase Device Remove Note: $e');
+    }
+  }
+
   void pairDevice(PairedDevice device) {
     _activeDevice = device;
     notifyListeners();
+    syncDeviceToFirebase();
   }
 
   void unpairDevice() {
-    _activeDevice = null;
-    notifyListeners();
+    if (_activeDevice != null) {
+      final oldId = _activeDevice!.id;
+      _activeDevice = null;
+      notifyListeners();
+      removeDeviceFromFirebase(oldId);
+    }
   }
 
   void updateDeviceRoom(String room) {
     if (_activeDevice != null) {
       _activeDevice!.room = room;
       notifyListeners();
+      syncDeviceToFirebase();
     }
   }
 
@@ -58,6 +114,7 @@ class DeviceService extends ChangeNotifier {
     if (_activeDevice != null) {
       _activeDevice!.name = newName;
       notifyListeners();
+      syncDeviceToFirebase();
     }
   }
 }

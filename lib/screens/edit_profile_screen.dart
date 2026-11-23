@@ -46,8 +46,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     setState(() => _isSaving = true);
 
-    final success =
-        await widget.authService.updateProfileName(_nameController.text.trim());
+    final success = await widget.authService.updateProfileName(
+      _nameController.text.trim(),
+      phone: _phoneController.text.trim(),
+      department: _deptController.text.trim(),
+      bio: _bioController.text.trim(),
+    );
 
     if (!mounted) return;
     setState(() => _isSaving = false);

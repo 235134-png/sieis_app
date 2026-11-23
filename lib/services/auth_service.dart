@@ -1,4 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -41,6 +43,8 @@ class AuthService extends ChangeNotifier {
               ? AuthProvider.google
               : AuthProvider.email,
         );
+        // Sync user session to Firebase Realtime Database
+        syncUserProfileToFirebase(name: _currentUser!.name);
       } else {
         _currentUser = null;
       }
@@ -72,6 +76,37 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> syncUserProfileToFirebase({
+    required String name,
+    String? phone,
+    String? department,
+    String? bio,
+  }) async {
+    final uid = _currentUser?.id;
+    if (uid == null) return;
+    try {
+      final app = Firebase.apps.isNotEmpty
+          ? Firebase.app()
+          : await Firebase.initializeApp();
+      final database = FirebaseDatabase.instanceFor(
+        app: app,
+        databaseURL:
+            'https://sieis-7b7fe-default-rtdb.asia-southeast1.firebasedatabase.app',
+      );
+      await database.ref('users/$uid/profile').update({
+        'fullName': name.trim(),
+        'email': _currentUser?.email ?? '',
+        if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+        if (department != null && department.trim().isNotEmpty)
+          'department': department.trim(),
+        if (bio != null && bio.trim().isNotEmpty) 'bio': bio.trim(),
+        'updatedAt': DateTime.now().millisecondsSinceEpoch,
+      });
+    } catch (e) {
+      debugPrint('Firebase Profile Sync Note: $e');
+    }
+  }
+
   Future<bool> loginWithEmail(String email, String password) async {
     _setLoading(true);
     _errorMessage = null;
@@ -99,6 +134,7 @@ class AuthService extends ChangeNotifier {
           photoUrl: u.photoURL,
           provider: AuthProvider.email,
         );
+        await syncUserProfileToFirebase(name: _currentUser!.name);
         _setLoading(false);
         return true;
       }
@@ -176,6 +212,7 @@ class AuthService extends ChangeNotifier {
           name: name.trim(),
           provider: AuthProvider.email,
         );
+        await syncUserProfileToFirebase(name: name.trim());
         _setLoading(false);
         return true;
       }
@@ -239,6 +276,7 @@ class AuthService extends ChangeNotifier {
           photoUrl: u.photoURL ?? googleUser.photoUrl,
           provider: AuthProvider.google,
         );
+        await syncUserProfileToFirebase(name: _currentUser!.name);
         _setLoading(false);
         return true;
       }
@@ -256,6 +294,7 @@ class AuthService extends ChangeNotifier {
           provider: AuthProvider.google,
         );
         _errorMessage = null;
+        await syncUserProfileToFirebase(name: _currentUser!.name);
         _setLoading(false);
         return true;
       }
@@ -279,19 +318,32 @@ class AuthService extends ChangeNotifier {
     _setLoading(false);
   }
 
-  Future<bool> updateProfileName(String newName) async {
+  Future<bool> updateProfileName(
+    String newName, {
+    String? phone,
+    String? department,
+    String? bio,
+  }) async {
     _setLoading(true);
     _errorMessage = null;
     try {
       final user = _auth.currentUser;
       if (user != null) {
         await user.updateDisplayName(newName.trim());
+      }
+      if (_currentUser != null) {
         _currentUser = UserSession(
-          id: user.uid,
-          email: user.email ?? _currentUser?.email ?? '',
+          id: _currentUser!.id,
+          email: _currentUser!.email,
           name: newName.trim(),
-          photoUrl: user.photoURL,
-          provider: _currentUser?.provider ?? AuthProvider.email,
+          photoUrl: _currentUser!.photoUrl,
+          provider: _currentUser!.provider,
+        );
+        await syncUserProfileToFirebase(
+          name: newName,
+          phone: phone,
+          department: department,
+          bio: bio,
         );
         notifyListeners();
         _setLoading(false);
